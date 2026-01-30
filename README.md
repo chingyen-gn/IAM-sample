@@ -34,28 +34,35 @@ npm install
 
 This installs `@braze/web-sdk` version 6.3.0 locally.
 
-### 2. Start the Server
+### 2. Generate SSL Certificates (one-time)
 
-**Option A: HTTP (simpler)**
+```bash
+npm run generate-certs
+```
+
+### 3. Start the Server
+
+**Option A: With Cross-Origin Isolation (reproduces the issue)**
 
 ```bash
 npm start
 ```
 
-Server starts at `http://localhost:3000`.
+Server starts at `https://localhost:3000` with COEP/COOP headers enabled. Images will be blocked.
 
-**Option B: HTTPS**
+**Option B: Without Cross-Origin Isolation (for comparison)**
 
 ```bash
-npm run generate-certs   # Generate self-signed certificates (one-time)
-npm run start:https
+npm run start:no-coi
 ```
 
-Server starts at `https://localhost:3000`. Accept the certificate warning in your browser.
+Server starts at `https://localhost:3000` without COEP/COOP headers. Images will load normally.
 
-### 3. Configure Braze API Key
+Accept the self-signed certificate warning in your browser.
 
-Open `http://localhost:3000` (or `https://localhost:3000` for HTTPS) in your browser.
+### 4. Configure Braze API Key
+
+Open `https://localhost:3000` in your browser.
 
 Enter your Braze API key and SDK endpoint in the configuration form.
 
@@ -104,6 +111,7 @@ IAM-sample/
 ├── README.md           # This file
 ├── package.json        # Node.js dependencies (@braze/web-sdk 6.3.0)
 ├── serve.json          # Config for npx serve with COEP/COOP headers
+├── serve-no-coi.json   # Config for npx serve without COEP/COOP headers
 ├── index.html          # Minimal Braze SDK integration
 ├── node_modules/       # Dependencies (after npm install)
 ├── cert.pem            # SSL certificate (generated, for HTTPS)
