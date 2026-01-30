@@ -141,6 +141,7 @@
     <button id="init-btn">Initialize Braze SDK</button>
     <button id="trigger-iam-btn" disabled>Trigger New Session</button>
     <button id="trigger-event-btn" disabled>Trigger Custom Event</button>
+    <button id="mock-iam-btn" disabled>Show Mock IAM (with image)</button>
   </div>
 
   <h2>Logs</h2>
@@ -240,6 +241,7 @@
           // Enable trigger buttons
           document.getElementById("trigger-iam-btn").disabled = false;
           document.getElementById("trigger-event-btn").disabled = false;
+          document.getElementById("mock-iam-btn").disabled = false;
           document.getElementById("init-btn").disabled = true;
 
         } else {
@@ -274,6 +276,37 @@
         log(`Custom event logged - IAMs configured for "${eventName}" event should trigger`, "info");
       } catch (error) {
         log(`Error logging custom event: ${error.message}`, "error");
+      }
+    });
+
+    // Mock IAM handler - creates and shows a mock IAM with an image
+    document.getElementById("mock-iam-btn").addEventListener("click", () => {
+      log("Creating mock Modal IAM with Braze CDN image...", "info");
+      try {
+        // Create a mock Modal message and set properties directly
+        const mockMessage = new braze.ModalMessage();
+
+        // Set message properties directly
+        mockMessage.message = "This is a test IAM to verify COEP image blocking.";
+        mockMessage.header = "Test Modal Message";
+        mockMessage.imageUrl = "https://cdn.braze.com/email_images/email-sign-up-with-welcome-discount/Logo-Placeholder.png";
+        mockMessage.buttons = []; // No buttons for simplicity
+        mockMessage.dismissType = braze.InAppMessage.DismissType.MANUAL;
+
+        log(`Mock IAM created`, "info");
+        log(`  Header: ${mockMessage.header}`, "info");
+        log(`  Message: ${mockMessage.message}`, "info");
+        log(`  Image URL: ${mockMessage.imageUrl}`, "info");
+        log("Attempting to show mock IAM...", "info");
+        log("Check Network tab for blocked image requests!", "warn");
+
+        // Show the mock message
+        braze.showInAppMessage(mockMessage);
+
+        log("Mock IAM display triggered", "success");
+      } catch (error) {
+        log(`Error showing mock IAM: ${error.message}`, "error");
+        console.error(error);
       }
     });
 
