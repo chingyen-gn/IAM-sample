@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Braze IAM - Cross-Origin Isolation Reproducer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+    }
+    .status {
+      background: #fff;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .status-item:last-child {
+      border-bottom: none;
+    }
+    .status-label {
+      font-weight: 500;
+    }
+    .status-value {
+      font-family: monospace;
+    }
+    .status-value.success {
+      color: #22c55e;
+    }
+    .status-value.error {
+      color: #ef4444;
+    }
+    .config-section {
+      background: #fff;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .config-section h2 {
+      margin-top: 0;
+      font-size: 18px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: monospace;
+      margin-bottom: 12px;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 8px;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    .logs {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border-radius: 8px;
+      padding: 16px;
+      font-family: monospace;
+      font-size: 13px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .log-entry {
+      margin-bottom: 4px;
+    }
+    .log-entry.info {
+      color: #60a5fa;
+    }
+    .log-entry.success {
+      color: #4ade80;
+    }
+    .log-entry.error {
+      color: #f87171;
+    }
+    .log-entry.warn {
+      color: #fbbf24;
+    }
+  </style>
+</head>
+<body>
+  <h1>Braze IAM - Cross-Origin Isolation Reproducer</h1>
+
+  <div class="status">
+    <div class="status-item">
+      <span class="status-label">Cross-Origin Isolated</span>
+      <span class="status-value" id="coep-status">Checking...</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">Braze SDK Version</span>
+      <span class="status-value">6.3.0</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">Braze SDK Initialized</span>
+      <span class="status-value" id="braze-status">Not initialized</span>
+    </div>
+  </div>
+
+  <div class="config-section">
+    <h2>Configuration</h2>
+    <label>Braze API Key:</label>
+    <input type="text" id="api-key" placeholder="Enter your Braze API Key" value="YOUR_BRAZE_API_KEY">
+
+    <label>Braze SDK Endpoint:</label>
+    <input type="text" id="sdk-endpoint" placeholder="e.g., sdk.iad-01.braze.com" value="YOUR_BRAZE_SDK_ENDPOINT">
+
+    <label>User ID (for changeUser):</label>
+    <input type="text" id="user-id" placeholder="Enter a test user ID" value="test-user-123">
+
+    <button id="init-btn">Initialize Braze SDK</button>
+    <button id="trigger-iam-btn" disabled>Trigger New Session</button>
+    <button id="trigger-event-btn" disabled>Trigger Custom Event</button>
+  </div>
+
+  <h2>Logs</h2>
+  <div class="logs" id="logs"></div>
+
+  <!-- Braze Web SDK v6.3.0 from local node_modules (ES Module) -->
+  <script type="module">
+    import * as braze from "/node_modules/@braze/web-sdk/src/index.js";
+
+    // Logging helper
+    function log(message, type = "info") {
+      const logs = document.getElementById("logs");
+      const entry = document.createElement("div");
+      entry.className = `log-entry ${type}`;
+      const timestamp = new Date().toLocaleTimeString();
+      entry.textContent = `[${timestamp}] ${message}`;
+      logs.appendChild(entry);
+      logs.scrollTop = logs.scrollHeight;
+      console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+
+    // Check Cross-Origin Isolation status
+    const coepStatus = document.getElementById("coep-status");
+    if (crossOriginIsolated) {
+      coepStatus.textContent = "true";
+      coepStatus.classList.add("success");
+      log("Cross-Origin Isolation is ENABLED", "success");
+    } else {
+      coepStatus.textContent = "false";
+      coepStatus.classList.add("error");
+      log("Cross-Origin Isolation is DISABLED - headers may not be set correctly", "error");
+    }
+
+    // Initialize Braze handler
+    document.getElementById("init-btn").addEventListener("click", () => {
+      const apiKey = document.getElementById("api-key").value;
+      const sdkEndpoint = document.getElementById("sdk-endpoint").value;
+      const userId = document.getElementById("user-id").value;
+
+      if (!apiKey || apiKey === "YOUR_BRAZE_API_KEY") {
+        log("Please enter a valid Braze API Key", "error");
+        return;
+      }
+
+      if (!sdkEndpoint || sdkEndpoint === "YOUR_BRAZE_SDK_ENDPOINT") {
+        log("Please enter a valid Braze SDK Endpoint", "error");
+        return;
+      }
+
+      log(`Initializing Braze SDK...`, "info");
+      log(`  API Key: ${apiKey.substring(0, 8)}...`, "info");
+      log(`  Endpoint: ${sdkEndpoint}`, "info");
+
+      try {
+        // Initialize Braze SDK
+        const success = braze.initialize(apiKey, {
+          baseUrl: sdkEndpoint,
+          enableLogging: true,
+          allowUserSuppliedJavascript: true,
+          manageServiceWorkerExternally: true,
+          doNotLoadFontAwesome: true,
+        });
+
+        if (success) {
+          log("Braze SDK initialized successfully", "success");
+          document.getElementById("braze-status").textContent = "Initialized";
+          document.getElementById("braze-status").classList.add("success");
+
+          // Subscribe to In-App Messages
+          braze.subscribeToInAppMessage((inAppMessage) => {
+            log(`Received In-App Message: ${inAppMessage.message || "(no message)"}`, "info");
+
+            if (inAppMessage.isControl) {
+              log("Control group message - logging impression only", "info");
+              return braze.showInAppMessage(inAppMessage);
+            }
+
+            log("Attempting to show In-App Message...", "info");
+            log("NOTE: If the IAM has images, they may be blocked by COEP!", "warn");
+
+            // This is where the issue occurs - images from Braze CDN will be blocked
+            return braze.showInAppMessage(inAppMessage);
+          });
+
+          log("Subscribed to In-App Messages", "success");
+
+          // Set user
+          if (userId) {
+            braze.changeUser(userId);
+            log(`Changed user to: ${userId}`, "info");
+          }
+
+          // Open session
+          braze.openSession();
+          log("Session opened", "success");
+
+          // Enable trigger buttons
+          document.getElementById("trigger-iam-btn").disabled = false;
+          document.getElementById("trigger-event-btn").disabled = false;
+          document.getElementById("init-btn").disabled = true;
+
+        } else {
+          log("Braze SDK initialization failed", "error");
+          document.getElementById("braze-status").textContent = "Failed";
+          document.getElementById("braze-status").classList.add("error");
+        }
+      } catch (error) {
+        log(`Error initializing Braze: ${error.message}`, "error");
+      }
+    });
+
+    // Trigger new session handler (also calls changeUser)
+    document.getElementById("trigger-iam-btn").addEventListener("click", () => {
+      const userId = document.getElementById("user-id").value;
+      log(`Changing user to: ${userId}`, "info");
+      try {
+        braze.changeUser(userId);
+        braze.openSession();
+        log("User changed and session opened - IAMs configured for session start should trigger", "info");
+      } catch (error) {
+        log(`Error: ${error.message}`, "error");
+      }
+    });
+
+    // Trigger custom event handler
+    document.getElementById("trigger-event-btn").addEventListener("click", () => {
+      const eventName = "test_iam_trigger";
+      log(`Logging custom event: ${eventName}`, "info");
+      try {
+        braze.logCustomEvent(eventName);
+        log(`Custom event logged - IAMs configured for "${eventName}" event should trigger`, "info");
+      } catch (error) {
+        log(`Error logging custom event: ${error.message}`, "error");
+      }
+    });
+
+    // Log initial page load
+    log("Page loaded. Braze SDK 6.3.0 loaded from node_modules.", "info");
+    log("Enter your Braze credentials and click 'Initialize Braze SDK'", "info");
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "braze-iam-coep-reproducer",
+  "version": "1.0.0",
+  "description": "Minimal reproducer for Braze IAM images blocked by Cross-Origin-Embedder-Policy",
+  "scripts": {
+    "start": "npx serve -c serve.json",
+    "start:https": "npx serve -c serve.json --ssl-cert cert.pem --ssl-key key.pem",
+    "generate-certs": "openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj '/CN=localhost'"
+  },
+  "dependencies": {
+    "@braze/web-sdk": "6.3.0"
+  }
+}
