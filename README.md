@@ -22,7 +22,7 @@ Braze CDN doesn't currently include this header, which causes images in In-App M
 ## Prerequisites
 
 - Node.js
-- OpenSSL (optional, only for HTTPS)
+- OpenSSL (for generating self-signed certificates)
 
 ## Setup
 
@@ -66,36 +66,48 @@ Open `https://localhost:3000` in your browser.
 
 Enter your Braze API key and SDK endpoint in the configuration form.
 
-## Verifying Cross-Origin Isolation
-
-Open the browser DevTools console. You should see:
-
-```
-Cross-Origin Isolated: true
-```
-
-If you see `false`, the headers are not being applied correctly.
-
 ## Reproducing the Issue
 
-1. Enter your Braze API key and SDK endpoint, then click **Initialize Braze SDK**
+### Quick Test (no Braze dashboard required)
+
+1. Start the server with COI enabled: `npm start`
+2. Open `https://localhost:3000` and accept the certificate warning
+3. Verify the status panel shows **Cross-Origin Isolated: true**
+4. Enter your Braze API key and SDK endpoint, then click **Initialize Braze SDK**
+5. Click **Show Mock IAM (with image)** to display a test modal with a Braze CDN image
+6. Observe in the Network tab that the image request is blocked
+7. The modal will appear but the image will be missing
+
+### Full Test (with Braze dashboard)
+
+1. Follow steps 1-4 above
 2. In your Braze dashboard, create a test In-App Message campaign:
    - Include an image in the message
    - Target the user ID you entered (default: `test-user-123`)
-   - Set trigger to either:
-     - **Session Start** - then click **Trigger New Session** button
-     - **Custom Event** named `test_iam_trigger` - then click **Trigger Custom Event** button
+   - Set trigger to **Session Start** or **Custom Event** named `test_iam_trigger`
 3. Trigger the IAM using one of the buttons:
-   - **Trigger New Session**: Calls `braze.openSession()` to start a new session
+   - **Trigger New Session**: Calls `braze.changeUser()` and `braze.openSession()`
    - **Trigger Custom Event**: Calls `braze.logCustomEvent("test_iam_trigger")`
-4. Observe in the Network tab that image requests to Braze CDN are blocked
-5. Check the console for CORP-related errors
+4. Observe the same blocking behavior
 
-## Expected Browser Error
+### Expected Browser Error
 
 ```
 net::ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoep
 ```
+
+## Comparison Test (without COI)
+
+To verify that images load correctly when Cross-Origin Isolation is disabled:
+
+1. Stop the current server (Ctrl+C)
+2. Start the server without COI: `npm run start:no-coi`
+3. Open `https://localhost:3000` (you may need to clear site data or use incognito)
+4. Verify the status panel shows **Cross-Origin Isolated: false**
+5. Initialize the SDK and click **Show Mock IAM (with image)**
+6. The image should load successfully
+
+This confirms that the issue is specifically caused by COEP/COOP headers.
 
 ## Requested Fix
 
