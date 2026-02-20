@@ -130,18 +130,19 @@
   <div class="config-section">
     <h2>Configuration</h2>
     <label>Braze API Key:</label>
-    <input type="text" id="api-key" placeholder="Enter your Braze API Key" value="YOUR_BRAZE_API_KEY">
+    <input type="text" id="api-key" placeholder="Enter your Braze API Key">
 
     <label>Braze SDK Endpoint:</label>
-    <input type="text" id="sdk-endpoint" placeholder="e.g., sdk.iad-01.braze.com" value="YOUR_BRAZE_SDK_ENDPOINT">
+    <input type="text" id="sdk-endpoint" placeholder="e.g., sdk.iad-01.braze.com">
 
     <label>User ID (for changeUser):</label>
-    <input type="text" id="user-id" placeholder="Enter a test user ID" value="test-user-123">
+    <input type="text" id="user-id" placeholder="Enter a test user ID">
 
     <button id="init-btn">Initialize Braze SDK</button>
     <button id="trigger-iam-btn" disabled>Trigger New Session</button>
     <button id="trigger-event-btn" disabled>Trigger Custom Event</button>
     <button id="mock-iam-btn" disabled>Show Mock IAM (with image)</button>
+    <button id="mock-html-iam-btn" disabled>Show Custom HTML IAM (crossorigin)</button>
   </div>
 
   <h2>Logs</h2>
@@ -150,6 +151,15 @@
   <!-- Braze Web SDK v6.3.0 from local node_modules (ES Module) -->
   <script type="module">
     import * as braze from "/node_modules/@braze/web-sdk/src/index.js";
+    // Load .env file
+    const env = await fetch("/.env").then(r => r.text()).then(text => {
+      const vars = {};
+      for (const line of text.split("\n")) {
+        const match = line.match(/^(\w+)=(.*)$/);
+        if (match) vars[match[1]] = match[2];
+      }
+      return vars;
+    }).catch(() => ({}));
 
     // Logging helper
     function log(message, type = "info") {
@@ -162,6 +172,11 @@
       logs.scrollTop = logs.scrollHeight;
       console.log(`[${type.toUpperCase()}] ${message}`);
     }
+
+    // Populate inputs from .env
+    document.getElementById("api-key").value = env.BRAZE_API_KEY || "";
+    document.getElementById("sdk-endpoint").value = env.BRAZE_SDK_ENDPOINT || "";
+    document.getElementById("user-id").value = env.BRAZE_USER_ID || "test-user-123";
 
     // Check Cross-Origin Isolation status
     const coepStatus = document.getElementById("coep-status");
@@ -181,12 +196,12 @@
       const sdkEndpoint = document.getElementById("sdk-endpoint").value;
       const userId = document.getElementById("user-id").value;
 
-      if (!apiKey || apiKey === "YOUR_BRAZE_API_KEY") {
+      if (!apiKey) {
         log("Please enter a valid Braze API Key", "error");
         return;
       }
 
-      if (!sdkEndpoint || sdkEndpoint === "YOUR_BRAZE_SDK_ENDPOINT") {
+      if (!sdkEndpoint) {
         log("Please enter a valid Braze SDK Endpoint", "error");
         return;
       }
@@ -242,6 +257,7 @@
           document.getElementById("trigger-iam-btn").disabled = false;
           document.getElementById("trigger-event-btn").disabled = false;
           document.getElementById("mock-iam-btn").disabled = false;
+          document.getElementById("mock-html-iam-btn").disabled = false;
           document.getElementById("init-btn").disabled = true;
 
         } else {
@@ -306,6 +322,58 @@
         log("Mock IAM display triggered", "success");
       } catch (error) {
         log(`Error showing mock IAM: ${error.message}`, "error");
+        console.error(error);
+      }
+    });
+
+    // Mock Custom HTML IAM handler - tests Braze team's suggestion of crossorigin="anonymous"
+    document.getElementById("mock-html-iam-btn").addEventListener("click", () => {
+      log("Creating mock Custom HTML IAM with crossorigin='anonymous' on image...", "info");
+      try {
+        const mockHtmlMessage = new braze.HtmlMessage();
+        mockHtmlMessage.message = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { margin: 0; padding: 20px; font-family: -apple-system, sans-serif; text-align: center; background: #fff; }
+              h2 { color: #333; }
+              p { color: #666; }
+              img { max-width: 100%; height: auto; border-radius: 8px; }
+              .close-btn { margin-top: 16px; padding: 10px 24px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+            </style>
+          </head>
+          <body>
+            <h2>Custom HTML IAM Test</h2>
+            <p>Image below uses crossorigin="anonymous" (Braze team's suggestion):</p>
+            <img
+              src="https://braze-images.com/appboy/communication/assets/image_assets/images/68b918fafab5a10067b5132a/original.png?1756961017"
+              crossorigin="anonymous"
+              alt="Test image with crossorigin"
+            >
+            <p id="img-status">Loading image...</p>
+            <br>
+            <button class="close-btn" onclick="brazeBridge.closeMessage()">Close</button>
+            <script>
+              const img = document.querySelector('img');
+              const status = document.getElementById('img-status');
+              img.onload = () => { status.textContent = 'Image loaded successfully!'; status.style.color = 'green'; };
+              img.onerror = () => { status.textContent = 'Image BLOCKED (crossorigin="anonymous" did not help)'; status.style.color = 'red'; };
+            <\/script>
+          </body>
+          </html>
+        `;
+        mockHtmlMessage.dismissType = braze.InAppMessage.DismissType.MANUAL;
+
+        log("Custom HTML IAM created with crossorigin='anonymous' on <img>", "info");
+        log("This tests Braze team's suggestion of adding crossorigin to images", "info");
+        log("The image is rendered inside a srcdoc iframe (inherits parent COEP)", "warn");
+
+        braze.showInAppMessage(mockHtmlMessage);
+
+        log("Custom HTML IAM display triggered - check if image loads!", "success");
+      } catch (error) {
+        log(`Error showing Custom HTML IAM: ${error.message}`, "error");
         console.error(error);
       }
     });
